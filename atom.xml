@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>李伟</title>
+  
+  <subtitle>千里之行始于足下</subtitle>
+  <link href="/atom.xml" rel="self"/>
+  
+  <link href="https://liwei.blog/"/>
+  <updated>2020-01-18T03:09:08.941Z</updated>
+  <id>https://liwei.blog/</id>
+  
+  <author>
+    <name>李伟</name>
+    
+  </author>
+  
+  <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>Docker下安装mongo 4.0</title>
+    <link href="https://liwei.blog/2018/10/31/docker-mongo-v4/"/>
+    <id>https://liwei.blog/2018/10/31/docker-mongo-v4/</id>
+    <published>2018-10-31T12:03:04.000Z</published>
+    <updated>2020-01-18T03:09:08.941Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="docker下安装mongo-40"><a class="markdownIt-Anchor" href="#docker下安装mongo-40"></a> Docker下安装mongo 4.0</h1><p>| 使用官方<a href="https://hub.docker.com/mongo" target="_blank" rel="noopener">mongo镜像</a>安装.</p><p>安装说明:</p><ul><li>使用docker-componse编排，安装mongo以及mongo-express</li><li>mongo使用host网络。</li><li>指定root用户名及密码</li><li>挂载数据卷:db、configdb</li></ul><h2 id="前期准备"><a class="markdownIt-Anchor" href="#前期准备"></a> 前期准备</h2><p>安装docker-compose</p><ol><li>ubuntu 简易安装:</li></ol><pre class="highlight"><code class="bash">apt-get install docker-compose -y</code></pre><ol start="2"><li>linux 通用安装(同样适用于ubuntu):</li></ol><pre class="highlight"><code class="bash">sudo curl -L <span class="hljs-string">"https://github.com/docker/compose/releases/download/1.22.0/docker-compose-<span class="hljs-variable">$(uname -s)</span>-<span class="hljs-variable">$(uname -m)</span>"</span> -o /usr/<span class="hljs-built_in">local</span>/bin/docker-composesudo chmod +x /usr/<span class="hljs-built_in">local</span>/bin/docker-compose</code></pre><p>官方详细安装手册：<a href="https://docs.docker.com/compose/install/#install-compose" target="_blank" rel="noopener">docker-compose install</a></p><h2 id="编写编排文件"><a class="markdownIt-Anchor" href="#编写编排文件"></a> 编写编排文件</h2><pre class="highlight"><code class="dockerfile">version: <span class="hljs-string">'3.1'</span>services:  mongo:    image: mongo:<span class="hljs-number">4.0</span>    restart: always    environment:      MONGO_INITDB_ROOT_USERNAME: root      MONGO_INITDB_ROOT_PASSWORD: your-password    network_mode: host    volumes:      - /data/mongo/db:/data/db      - /data/mongo/configdb:/data/configdb  mongo-express:    image: mongo-express    restart: always    ports:      - <span class="hljs-number">8081</span>:<span class="hljs-number">8081</span>    environment:      ME_CONFIG_MONGODB_SERVER: your-host-ip      ME_CONFIG_MONGODB_ADMINUSERNAME: root      ME_CONFIG_MONGODB_ADMINPASSWORD: your-password</code></pre><h3 id="创建数据库-及账号"><a class="markdownIt-Anchor" href="#创建数据库-及账号"></a> 创建数据库、及账号</h3><ol><li>登录docker容器</li></ol><pre class="highlight"><code class="">docker exec -it mongo_container_name bash</code></pre><ol start="2"><li>以root身份连接mongo</li></ol><pre class="highlight"><code class="bash">mongo -u root -p  your-password --authenticationDatabase admin</code></pre><ol start="3"><li>给指定db新增用户(owner)</li></ol><pre class="highlight"><code class="js">use testdb;db.createUser(    {      <span class="hljs-attr">user</span>: <span class="hljs-string">"testdb"</span>,      <span class="hljs-attr">pwd</span>:<span class="hljs-string">"your-testdb-password"</span>,      <span class="hljs-attr">roles</span>: [         { <span class="hljs-attr">role</span>: <span class="hljs-string">"dbOwner"</span>, <span class="hljs-attr">db</span>: <span class="hljs-string">"testdb"</span> }      ]    })</code></pre><ol start="4"><li>新增管理员(admin)</li></ol><pre class="highlight"><code class="js">use admin;db.createUser({   <span class="hljs-attr">user</span>:<span class="hljs-string">"admin"</span>,   <span class="hljs-attr">pwd</span>:<span class="hljs-string">"your-admin-password"</span>,   <span class="hljs-attr">roles</span>:[     {     <span class="hljs-attr">role</span>:<span class="hljs-string">"userAdminAnyDatabase"</span>,     <span class="hljs-attr">db</span>:<span class="hljs-string">"admin"</span>     }   ]})</code></pre><h2 id="使用-python-37-api-操作-mongo-4"><a class="markdownIt-Anchor" href="#使用-python-37-api-操作-mongo-4"></a> 使用 python 3.7 API 操作 mongo 4</h2><pre class="highlight"><code class="python"><span class="hljs-keyword">from</span> pymongo <span class="hljs-keyword">import</span> MongoClient<span class="hljs-keyword">import</span> pprint<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">connectDB</span><span class="hljs-params">()</span>:</span>    client = MongoClient(        <span class="hljs-string">'host'</span>,        username=<span class="hljs-string">'testdb'</span>,        password=<span class="hljs-string">'your password'</span>,        authSource=<span class="hljs-string">'testdb'</span>,        authMechanism=<span class="hljs-string">'SCRAM-SHA-256'</span>)    <span class="hljs-comment">#  uri = "mongodb://user:password@example.com/?authSource=the_database&amp;authMechanism=SCRAM-SHA-256"</span>    <span class="hljs-comment"># client = MongoClient(uri)</span>    db = client.testdb    <span class="hljs-keyword">return</span> db<span class="hljs-keyword">if</span> __name__ == <span class="hljs-string">"__main__"</span>:    db = connectDB()    collection = db.posts    pprint.pprint(collection.find_one())    post = {<span class="hljs-string">'name'</span>: <span class="hljs-string">'tt5'</span>,<span class="hljs-string">'written_by'</span>: <span class="hljs-string">'Tom'</span>, <span class="hljs-string">'composed_by'</span>: <span class="hljs-string">'Tom'</span>}    id = collection.insert_one(post).inserted_id    print(id)    pprint.pprint(collection.find_one({<span class="hljs-string">'name'</span>:<span class="hljs-string">'tt5'</span>}))</code></pre><p>转载请注明出处，本文采用 <a href="http://creativecommons.org/licenses/by-nc-nd/4.0/" target="_blank" rel="noopener">CC4.0</a> 协议授权</p>]]></content>
+    
+    <summary type="html">
+    
+      Docker下安装mongo 4.0
+    
+    </summary>
+    
+      <category term="技术" scheme="https://liwei.blog/categories/%E6%8A%80%E6%9C%AF/"/>
+    
+    
+      <category term="Docker" scheme="https://liwei.blog/tags/Docker/"/>
+    
+      <category term="Mongo" scheme="https://liwei.blog/tags/Mongo/"/>
+    
+      <category term="Mongo 4" scheme="https://liwei.blog/tags/Mongo-4/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>InfluxDB + Grafana对Gitlab进行监控</title>
+    <link href="https://liwei.blog/2018/05/05/influxdb-grafana-gitlab-metrics/"/>
+    <id>https://liwei.blog/2018/05/05/influxdb-grafana-gitlab-metrics/</id>
+    <published>2018-05-05T05:02:03.000Z</published>
+    <updated>2020-01-18T03:09:08.941Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="前言"><a class="markdownIt-Anchor" href="#前言"></a> 前言</h1><p>对于使用gitlab作代码仓库的、可以通过集成InfluxDB + Grafana 轻松实现对Gitlab服务器资源以及各度量指标的监控。<br>安装环境：Centos7<br>软件版本：InfluxDB 1.5、 Grafana 5.1.0<br>先上图看下效果：<br><img src="https://cdn.liweiv.com/note/img/gitlab-grafana.png" alt="Gitlab-grafana"></p><h1 id="influxdb安装"><a class="markdownIt-Anchor" href="#influxdb安装"></a> InfluxDB安装</h1><p>安装系统为centos 7、ubuntu等均可参考。<a href="https://docs.influxdata.com/influxdb/v1.5/introduction/installation/" target="_blank" rel="noopener">官方安装文档</a></p><h2 id="1-设置安装源"><a class="markdownIt-Anchor" href="#1-设置安装源"></a> 1. 设置安装源</h2><pre class="highlight"><code class="bash">cat &lt;&lt;EOF | sudo tee /etc/yum.repos.d/influxdb.repo[influxdb]  name = InfluxDB Repository - RHEL \<span class="hljs-variable">$releasever</span>  baseurl = https://repos.influxdata.com/rhel/\<span class="hljs-variable">$releasever</span>/\<span class="hljs-variable">$basearch</span>/stable  enabled = 1  gpgcheck = 1  gpgkey = https://repos.influxdata.com/influxdb.keyEOF</code></pre><h2 id="2-yum安装"><a class="markdownIt-Anchor" href="#2-yum安装"></a> 2. yum安装</h2><pre class="highlight"><code class="bash">sudo yum install influxdbsudo service influxdb start</code></pre><h2 id="3-配置简介"><a class="markdownIt-Anchor" href="#3-配置简介"></a> 3. 配置简介</h2><p>通常需要按需指定influxdb的数据存储位置设置为数据盘某存储路径、例如: /data/influxdb,确保data对应的分区有足够的存储空间。</p><p>磁盘路径设置</p><pre class="highlight"><code class="bash">vim /etc/influxdb/influxdb.conf</code></pre><pre class="highlight"><code class="TOML">...<span class="hljs-section">[meta]</span>  dir = "/data/influxdb/meta"  ... ...<span class="hljs-section">[data]</span>  dir = "/data/influxdb/data"  ...  wal-dir = "/data/influxdb/wal"  ......<span class="hljs-section">[hinted-handoff]</span>  ...  dir = "/data/influxdb/hh"  ...</code></pre><p>为gitlab启用UDP协议以及配置相应的influxdb数据库名、端口、数据库名与gitlab influxdb配置相对应，配置大致如下：</p><pre class="highlight"><code class="TOML"><span class="hljs-section">[[udp]]</span>  enabled = true  bind-address = ":8089" <span class="hljs-comment"># the bind address</span>  database = "gitlab" <span class="hljs-comment"># Name of the database that will be written to</span>  batch-size = 5000 <span class="hljs-comment"># will flush if this many points get buffered</span>  batch-timeout = "1s" <span class="hljs-comment"># will flush at least this often even if the batch-size is not reached</span>  batch-pending = 10 <span class="hljs-comment"># number of batches that may be pending in memory</span>  read-buffer = 0 <span class="hljs-comment"># UDP read buffer, 0 means to use OS default</span></code></pre><h1 id="grafana安装-配置"><a class="markdownIt-Anchor" href="#grafana安装-配置"></a> Grafana安装、配置</h1><h2 id="1-安装grafana"><a class="markdownIt-Anchor" href="#1-安装grafana"></a> 1. 安装Grafana</h2><p><a href="https://grafana.com/grafana/download" target="_blank" rel="noopener">官方安装文档</a></p><pre class="highlight"><code class="bash">wget https://s3-us-west-2.amazonaws.com/grafana-releases/release/grafana-5.1.0-1.x86_64.rpm sudo yum localinstall grafana-5.1.0-1.x86_64.rpm </code></pre><h2 id="2-修改配置"><a class="markdownIt-Anchor" href="#2-修改配置"></a> 2. 修改配置</h2><pre class="highlight"><code class="bash">vi /etc/grafana/grafana.ini</code></pre><p>data = /data/grafana 为sqlite数据库文件存储位置、plugins = /data/grafana/plugins为插件存储路径 使用docker部署时需要通过挂载卷持久化。</p><p>按需设置认证方式，支持多种认证方式（Basic auth、google auth、github auth、LDAP 等…）</p><h2 id="3-grafana-gitlab监控-dashbord导入"><a class="markdownIt-Anchor" href="#3-grafana-gitlab监控-dashbord导入"></a> 3. grafana gitlab监控 dashbord导入</h2><p>使用ID为3749如下dashboard:<br><img src="https://cdn.liweiv.com/note/img/gitlab-influxdb-grafana.png" alt="Gitlab-grafana"></p><h1 id="gitlab配置"><a class="markdownIt-Anchor" href="#gitlab配置"></a> Gitlab配置</h1><p>gitlab 管理员设置中启用influxdb指标，配置如下:<br><img src="https://cdn.liweiv.com/note/img/gitlab-influxdb.png" alt="gitlab setting"></p>]]></content>
+    
+    <summary type="html">
+    
+      InfluxDB + Telegraf收集Gitlab监控
+    
+    </summary>
+    
+      <category term="技术" scheme="https://liwei.blog/categories/%E6%8A%80%E6%9C%AF/"/>
+    
+    
+      <category term="Gitlab" scheme="https://liwei.blog/tags/Gitlab/"/>
+    
+      <category term="CI/CD" scheme="https://liwei.blog/tags/CI-CD/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>Gitlab数据备份到AWS S3</title>
+    <link href="https://liwei.blog/2017/09/19/gitlab_remote_backup_s3/"/>
+    <id>https://liwei.blog/2017/09/19/gitlab_remote_backup_s3/</id>
+    <published>2017-09-19T08:05:07.000Z</published>
+    <updated>2020-01-18T03:09:08.941Z</updated>
+    
+    <content type="html"><![CDATA[<h3 id="准备s3存储桶"><a class="markdownIt-Anchor" href="#准备s3存储桶"></a> 准备S3存储桶</h3><p>region: ‘cn-north-1’</p><p>aws_access_key_id</p><p>aws_secret_access_key</p><h3 id="修改gitlab配置文件"><a class="markdownIt-Anchor" href="#修改gitlab配置文件"></a> 修改gitlab配置文件</h3><pre class="highlight"><code class="ruby">gitlab_rails[<span class="hljs-string">'manage_backup_path'</span>] = <span class="hljs-literal">true</span>gitlab_rails[<span class="hljs-string">'backup_path'</span>] = <span class="hljs-string">"/var/opt/gitlab/backups"</span>gitlab_rails[<span class="hljs-string">'backup_archive_permissions'</span>] = <span class="hljs-number">0644</span> <span class="hljs-comment"># See: http://doc.gitlab.com/ce/raketasks/backup_restore.html#backup-archive-permissions</span>gitlab_rails[<span class="hljs-string">'backup_pg_schema'</span>] = <span class="hljs-string">'public'</span>gitlab_rails[<span class="hljs-string">'backup_keep_time'</span>] = <span class="hljs-number">604800</span><span class="hljs-comment">#gitlab_ci['backup_upload_connection'] = {</span>gitlab_rails[<span class="hljs-string">'backup_upload_connection'</span>] = {  <span class="hljs-string">'provider'</span> =&gt; <span class="hljs-string">'AWS'</span>,  <span class="hljs-string">'region'</span> =&gt; <span class="hljs-string">'cn-north-1'</span>,  <span class="hljs-string">'aws_access_key_id'</span> =&gt; <span class="hljs-string">'&lt;yousr aws ak&gt;'</span>,  <span class="hljs-string">'aws_secret_access_key'</span> =&gt; <span class="hljs-string">'&lt;your aws sk&gt;'</span>}gitlab_rails[<span class="hljs-string">'backup_upload_remote_directory'</span>] = <span class="hljs-string">'&lt;your bucket name&gt;'</span>gitlab_rails[<span class="hljs-string">'backup_multipart_chunk_size'</span>] = <span class="hljs-number">104857600</span></code></pre><h3 id="reconfigure-gitlab"><a class="markdownIt-Anchor" href="#reconfigure-gitlab"></a> Reconfigure gitlab</h3><pre class="highlight"><code class="bash">$ gitlabctl reconfigure</code></pre><h3 id="备份数据"><a class="markdownIt-Anchor" href="#备份数据"></a> 备份数据</h3><pre class="highlight"><code class="bash">$ gitlab-rake gitlab:backup:create DIRECTORY=gitlab_bakup/weekly</code></pre>]]></content>
+    
+    <summary type="html">
+    
+      将Gitlab数据备份到AWS S3
+    
+    </summary>
+    
+      <category term="技术" scheme="https://liwei.blog/categories/%E6%8A%80%E6%9C%AF/"/>
+    
+    
+      <category term="Gitlab" scheme="https://liwei.blog/tags/Gitlab/"/>
+    
+      <category term="CI/CD" scheme="https://liwei.blog/tags/CI-CD/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>Docker容器部署zookeeper集群</title>
+    <link href="https://liwei.blog/2017/07/19/zookeeper-cluster-in-docker/"/>
+    <id>https://liwei.blog/2017/07/19/zookeeper-cluster-in-docker/</id>
+    <published>2017-07-19T09:06:07.000Z</published>
+    <updated>2020-01-18T03:09:08.941Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote><p>部署zookeeper集群</p></blockquote><h2 id="集群规划"><a class="markdownIt-Anchor" href="#集群规划"></a> 集群规划</h2><p>10.129.11.12   zk1</p><p>10.129.11.13   zk2</p><p>10.129.11.14   zk3</p><h2 id="镜像"><a class="markdownIt-Anchor" href="#镜像"></a> 镜像</h2><pre class="highlight"><code class="bash">$ docker pull mesoscloud/zookeeper</code></pre><h2 id="启动容器"><a class="markdownIt-Anchor" href="#启动容器"></a> 启动容器</h2><h3 id="zk1上启动节点1"><a class="markdownIt-Anchor" href="#zk1上启动节点1"></a> zk1上启动节点1</h3><pre class="highlight"><code class="bash">$ docker run -d \-v /data/svc/zookeeper/data:/data \-v /data/svc/zookeeper/<span class="hljs-built_in">log</span>:/datalog \-e ZOO_MY_ID=1 \-e <span class="hljs-string">"ZOO_SERVERS=server.1=10.129.11.12:2888:3888 server.2=10.129.11.13:2888:3888 server.3=10.129.11.14:2888:3888"</span> \--name=zookeeper --net=host --restart=always zookeeper:3.4.10</code></pre><h3 id="zk2上启动节点2"><a class="markdownIt-Anchor" href="#zk2上启动节点2"></a> zk2上启动节点2</h3><pre class="highlight"><code class="bash">$ docker run -d \-v /data/svc/zookeeper/data:/data \-v /data/svc/zookeeper/<span class="hljs-built_in">log</span>:/datalog \-e ZOO_MY_ID=2 \-e <span class="hljs-string">"ZOO_SERVERS=server.1=10.129.11.12:2888:3888 server.2=10.129.11.13:2888:3888 server.3=10.129.11.14:2888:3888"</span> \--name=zookeeper --net=host --restart=always zookeeper:3.4.10</code></pre><h3 id="zk3-上启动节点3"><a class="markdownIt-Anchor" href="#zk3-上启动节点3"></a> zk3 上启动节点3</h3><pre class="highlight"><code class="bash">$ docker run -d \-v /data/svc/zookeeper/data:/data \-v /data/svc/zookeeper/<span class="hljs-built_in">log</span>:/datalog \-e ZOO_MY_ID=3 \-e <span class="hljs-string">"ZOO_SERVERS=server.1=10.129.11.12:2888:3888 server.2=10.129.11.13:2888:3888 server.3=10.129.11.14:2888:3888"</span> \--name=zookeeper --net=host --restart=always zookeeper:3.4.10</code></pre>]]></content>
+    
+    <summary type="html">
+    
+      docker host网络模式部署zookeeper集群
+    
+    </summary>
+    
+      <category term="技术" scheme="https://liwei.blog/categories/%E6%8A%80%E6%9C%AF/"/>
+    
+    
+      <category term="Docker" scheme="https://liwei.blog/tags/Docker/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>基于alpine构建镜像时关于时区修改问题</title>
+    <link href="https://liwei.blog/2016/12/13/alpine-time-zone/"/>
+    <id>https://liwei.blog/2016/12/13/alpine-time-zone/</id>
+    <published>2016-12-13T05:02:03.000Z</published>
+    <updated>2020-01-18T03:09:08.937Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote><p>构建docker镜像时依赖的官方镜像大多时区不是国内东八区,需要在build镜像时重新设置时区。</p></blockquote><h4 id="修改镜像源为阿里"><a class="markdownIt-Anchor" href="#修改镜像源为阿里"></a> 修改镜像源为阿里</h4><pre class="highlight"><code class="bash"><span class="hljs-built_in">echo</span> -e  <span class="hljs-string">"http://mirrors.aliyun.com/alpine/v3.4/main\nhttp://mirrors.aliyun.com/alpine/v3.4/community"</span> \ &gt;  /etc/apk/repositories &amp;&amp; apk update</code></pre><h4 id="安装tzdata"><a class="markdownIt-Anchor" href="#安装tzdata"></a> 安装tzdata</h4><pre class="highlight"><code class="bash">apk add tzdata</code></pre><h4 id="拷贝对应时区止localtime"><a class="markdownIt-Anchor" href="#拷贝对应时区止localtime"></a> 拷贝对应时区止localtime</h4><pre class="highlight"><code class="bash">cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime</code></pre><h4 id="指定时区"><a class="markdownIt-Anchor" href="#指定时区"></a> 指定时区</h4><pre class="highlight"><code class="bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">"Asia/Shanghai"</span> &gt; /etc/timezone</code></pre><h4 id="删除tzdata"><a class="markdownIt-Anchor" href="#删除tzdata"></a> 删除tzdata</h4><pre class="highlight"><code class="bash">apk del tzdata</code></pre><h4 id="dockerfile-写法"><a class="markdownIt-Anchor" href="#dockerfile-写法"></a> Dockerfile 写法</h4><pre class="highlight"><code class="dockerfile"><span class="hljs-keyword">FROM</span> tomcat:alpine<span class="hljs-keyword">RUN</span><span class="bash"> <span class="hljs-built_in">echo</span> -e  <span class="hljs-string">"http://mirrors.aliyun.com/alpine/v3.4/main\nhttp://mirrors.aliyun.com/alpine/v3.4/community"</span> &gt;  /etc/apk/repositories \&amp;&amp; apk update &amp;&amp; apk add tzdata \&amp;&amp; cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \&amp;&amp; <span class="hljs-built_in">echo</span> <span class="hljs-string">"Shanghai/Asia"</span> &gt; /etc/timezone \&amp;&amp; apk del tzdata</span></code></pre><p>转载请注明出处，本文采用 <a href="http://creativecommons.org/licenses/by-nc-nd/4.0/" target="_blank" rel="noopener">CC4.0</a> 协议授权</p>]]></content>
+    
+    <summary type="html">
+    
+      构建docker镜像时依赖的官方镜像大多时区不是国内东八区,需要在build镜像时重新设置时区
+    
+    </summary>
+    
+      <category term="技术" scheme="https://liwei.blog/categories/%E6%8A%80%E6%9C%AF/"/>
+    
+    
+      <category term="Docker" scheme="https://liwei.blog/tags/Docker/"/>
+    
+      <category term="Alpine" scheme="https://liwei.blog/tags/Alpine/"/>
+    
+      <category term="Timezone" scheme="https://liwei.blog/tags/Timezone/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>基于Dokcer容器部署分布式配置文件中心disconf</title>
+    <link href="https://liwei.blog/2016/12/07/deploy-disconf-in-docker/"/>
+    <id>https://liwei.blog/2016/12/07/deploy-disconf-in-docker/</id>
+    <published>2016-12-07T06:03:04.000Z</published>
+    <updated>2020-01-18T03:09:08.941Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote><p>Docker容器部署disconf</p></blockquote><h4 id="一-背景"><a class="markdownIt-Anchor" href="#一-背景"></a> 一、背景</h4><p>随着容器技术、微服务架构的流行，互联网以及互联网转型ing企业已经逐步开始从单体架构解耦为微服务架构的同时，将传统应用/程序容器化部署。</p><p>容器化过程中，我们期望一个镜像可以运行在不同的环境（local,qa,rd…)。这意味着可配置信息要么通过系统变量供容器读取，这是最鼓励大家使用的方式，但是Java web开发历来都有繁琐的xml配置 比如spring XML config、 log4j/logback等等。通过变量传入意味着使用大量的环境变量。所以使用集中配置文件中心是解决java程序配置文件瓶颈的主要途径。</p><p>公司选择国内流行的百度disconf作为配置文件中心，本文主要讨论基于容器部署disconf。</p><h4 id="二-编译disconf-web"><a class="markdownIt-Anchor" href="#二-编译disconf-web"></a> 二、编译disconf-web</h4><p>暂时使用传统方式编译war包详情见<br>将来使用容器编译构建</p><h4 id="三-镜像制作"><a class="markdownIt-Anchor" href="#三-镜像制作"></a> 三、镜像制作</h4><pre class="highlight"><code class="dockerfile"><span class="hljs-keyword">FROM</span> tomcat:alpine<span class="hljs-keyword">RUN</span><span class="bash"> <span class="hljs-built_in">echo</span> -e  <span class="hljs-string">"http://mirrors.aliyun.com/alpine/v3.4/main\nhttp://mirrors.aliyun.com/alpine/v3.4/community"</span> &gt;  /etc/apk/repositories &amp;&amp; apk update</span><span class="hljs-keyword">RUN</span><span class="bash"> apk add --no-cache nginx &amp;&amp; mkdir /run/nginx &amp;&amp; rm -rf /usr/<span class="hljs-built_in">local</span>/tomcat/webapps/*</span><span class="hljs-keyword">COPY</span><span class="bash"> app/disconf-web.war /usr/<span class="hljs-built_in">local</span>/tomcat/webapps/ROOT.war</span><span class="hljs-keyword">RUN</span><span class="bash"> <span class="hljs-built_in">cd</span> /usr/<span class="hljs-built_in">local</span>/tomcat/webapps/ &amp;&amp; mkdir ROOT &amp;&amp; unzip ROOT.war -d ./ROOT &amp;&amp; rm ROOT.war</span><span class="hljs-keyword">COPY</span><span class="bash"> app/*.properties /usr/<span class="hljs-built_in">local</span>/tomcat/webapps/ROOT/WEB-INF/classes/</span><span class="hljs-keyword">COPY</span><span class="bash"> bin/entrypoint.sh /app/entrypoint.sh </span><span class="hljs-keyword">COPY</span><span class="bash"> nginx/nginx.conf /etc/nginx/nginx.conf</span><span class="hljs-keyword">COPY</span><span class="bash"> app/html /app/html</span><span class="hljs-keyword">RUN</span><span class="bash"> chmod u+x /app/entrypoint.sh</span><span class="hljs-keyword">WORKDIR</span><span class="bash"> /app</span><span class="hljs-keyword">EXPOSE</span> <span class="hljs-number">80</span><span class="hljs-keyword">ENTRYPOINT</span><span class="bash"> ./entrypoint.sh</span></code></pre><p>目前采用配置文件修改zk,mysql地址,可通过使用环境变量传入zk,redis,mysql等配置信息。</p><h4 id="四-构建镜像"><a class="markdownIt-Anchor" href="#四-构建镜像"></a> 四、构建镜像</h4><pre class="highlight"><code class="bash">docker build --no-cache -t disconf:alpine .</code></pre><h4 id="五-启动容器"><a class="markdownIt-Anchor" href="#五-启动容器"></a> 五、启动容器</h4><pre class="highlight"><code class="bash">docker run --name -p 8000:8000 disconf disconf:alpine</code></pre><p>转载请注明出处，本文采用 <a href="http://creativecommons.org/licenses/by-nc-nd/4.0/" target="_blank" rel="noopener">CC4.0</a> 协议授权</p>]]></content>
+    
+    <summary type="html">
+    
+      基于Dokcer容器部署分布式配置文件中心
+    
+    </summary>
+    
+      <category term="技术" scheme="https://liwei.blog/categories/%E6%8A%80%E6%9C%AF/"/>
+    
+    
+      <category term="Disconf" scheme="https://liwei.blog/tags/Disconf/"/>
+    
+      <category term="Docker" scheme="https://liwei.blog/tags/Docker/"/>
+    
+  </entry>
+  
+</feed>

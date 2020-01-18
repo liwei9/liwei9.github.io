@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+    
+
+    
+
+    
+
+
+
+    <meta charset="utf-8">
+    
+    
+    
+    <link rel="canonical" href="https://liwei.blog/2016/12/13/alpine-time-zone/">
+    
+    
+    <title>基于alpine构建镜像时关于时区修改问题 | 李伟 | 千里之行始于足下</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    
+    <meta name="theme-color" content="#3F51B5">
+    
+    
+    <meta name="keywords" content="Docker,Alpine,Timezone">
+    <meta name="description" content="构建docker镜像时依赖的官方镜像大多时区不是国内东八区,需要在build镜像时重新设置时区">
+<meta name="keywords" content="Docker,Alpine,Timezone">
+<meta property="og:type" content="article">
+<meta property="og:title" content="基于alpine构建镜像时关于时区修改问题">
+<meta property="og:url" content="https://liwei.blog/2016/12/13/alpine-time-zone/index.html">
+<meta property="og:site_name" content="李伟">
+<meta property="og:description" content="构建docker镜像时依赖的官方镜像大多时区不是国内东八区,需要在build镜像时重新设置时区">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-01-18T03:09:08.937Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="基于alpine构建镜像时关于时区修改问题">
+<meta name="twitter:description" content="构建docker镜像时依赖的官方镜像大多时区不是国内东八区,需要在build镜像时重新设置时区">
+    
+        <link rel="alternate" type="application/atom+xml" title="李伟" href="/atom.xml">
+    
+    <link rel="shortcut icon" href="/favicon.ico">
+    <link rel="stylesheet" href="/css/style.css?v=1.7.2">
+    <script>window.lazyScripts=[]</script>
+
+    <!-- custom head -->
+    
+
+</head>
+
+<body>
+    <div id="loading" class="active"></div>
+
+    <aside id="menu" class="hide">
+  <div class="inner flex-row-vertical">
+    <a href="javascript:;" class="header-icon waves-effect waves-circle waves-light" id="menu-off">
+        <i class="icon icon-lg icon-close"></i>
+    </a>
+    <div class="brand-wrap" style="background-image:url(/img/brand.jpg)">
+      <div class="brand">
+        <a href="/" class="avatar waves-effect waves-circle waves-light">
+          <img src="/img/avatar_i.jpg">
+        </a>
+        <hgroup class="introduce">
+          <h5 class="nickname">李伟</h5>
+          <a href="mailto:drmfly.liw@gmail.com" title="drmfly.liw@gmail.com" class="mail">drmfly.liw@gmail.com</a>
+        </hgroup>
+      </div>
+    </div>
+    <div class="scroll-wrap flex-col">
+      <ul class="nav">
+        
+            <li class="waves-block waves-effect">
+              <a href="/">
+                <i class="icon icon-lg icon-home"></i>
+                主页
+              </a>
+            </li>
+        
+            <li class="waves-block waves-effect">
+              <a href="/archives">
+                <i class="icon icon-lg icon-archives"></i>
+                归档
+              </a>
+            </li>
+        
+            <li class="waves-block waves-effect">
+              <a href="/tags">
+                <i class="icon icon-lg icon-tags"></i>
+                标签
+              </a>
+            </li>
+        
+            <li class="waves-block waves-effect">
+              <a href="/categories">
+                <i class="icon icon-lg icon-th-list"></i>
+                分类
+              </a>
+            </li>
+        
+            <li class="waves-block waves-effect">
+              <a href="https://github.com/veily" target="_blank">
+                <i class="icon icon-lg icon-github"></i>
+                Github
+              </a>
+            </li>
+        
+      </ul>
+    </div>
+  </div>
+</aside>
+
+    <main id="main">
+        <header class="top-header" id="header">
+    <div class="flex-row">
+        <a href="javascript:;" class="header-icon waves-effect waves-circle waves-light on" id="menu-toggle">
+          <i class="icon icon-lg icon-navicon"></i>
+        </a>
+        <div class="flex-col header-title ellipsis">基于alpine构建镜像时关于时区修改问题</div>
+        
+        <div class="search-wrap" id="search-wrap">
+            <a href="javascript:;" class="header-icon waves-effect waves-circle waves-light" id="back">
+                <i class="icon icon-lg icon-chevron-left"></i>
+            </a>
+            <input type="text" id="key" class="search-input" autocomplete="off" placeholder="输入感兴趣的关键字">
+            <a href="javascript:;" class="header-icon waves-effect waves-circle waves-light" id="search">
+                <i class="icon icon-lg icon-search"></i>
+            </a>
+        </div>
+        
+        
+    </div>
+</header>
+<header class="content-header post-header">
+
+    <div class="container fade-scale">
+        <h1 class="title">基于alpine构建镜像时关于时区修改问题</h1>
+        <h5 class="subtitle">
+            
+                <time datetime="2016-12-13T05:02:03.000Z" itemprop="datePublished" class="page-time">
+  2016-12-13
+</time>
+
+
+	<ul class="article-category-list"><li class="article-category-list-item"><a class="article-category-list-link" href="/categories/技术/">技术</a></li></ul>
+
+            
+        </h5>
+    </div>
+
+    
+
+
+</header>
+
+
+<div class="container body-wrap">
+    
+    <aside class="post-widget">
+        <nav class="post-toc-wrap post-toc-shrink" id="post-toc">
+            <h4>TOC</h4>
+            <ol class="post-toc"><li class="post-toc-item post-toc-level-4"><a class="post-toc-link" href="#修改镜像源为阿里"><span class="post-toc-number">1.</span> <span class="post-toc-text"> 修改镜像源为阿里</span></a></li><li class="post-toc-item post-toc-level-4"><a class="post-toc-link" href="#安装tzdata"><span class="post-toc-number">2.</span> <span class="post-toc-text"> 安装tzdata</span></a></li><li class="post-toc-item post-toc-level-4"><a class="post-toc-link" href="#拷贝对应时区止localtime"><span class="post-toc-number">3.</span> <span class="post-toc-text"> 拷贝对应时区止localtime</span></a></li><li class="post-toc-item post-toc-level-4"><a class="post-toc-link" href="#指定时区"><span class="post-toc-number">4.</span> <span class="post-toc-text"> 指定时区</span></a></li><li class="post-toc-item post-toc-level-4"><a class="post-toc-link" href="#删除tzdata"><span class="post-toc-number">5.</span> <span class="post-toc-text"> 删除tzdata</span></a></li><li class="post-toc-item post-toc-level-4"><a class="post-toc-link" href="#dockerfile-写法"><span class="post-toc-number">6.</span> <span class="post-toc-text"> Dockerfile 写法</span></a></li></ol>
+        </nav>
+    </aside>
+
+
+<article id="post-alpine-time-zone" class="post-article article-type-post fade" itemprop="blogPost">
+
+    <div class="post-card">
+        <h1 class="post-card-title">基于alpine构建镜像时关于时区修改问题</h1>
+        <div class="post-meta">
+            <time class="post-time" title="2016-12-13 13:02:03" datetime="2016-12-13T05:02:03.000Z" itemprop="datePublished">2016-12-13</time>
+
+            
+	<ul class="article-category-list"><li class="article-category-list-item"><a class="article-category-list-link" href="/categories/技术/">技术</a></li></ul>
+
+
+
+            
+<span id="busuanzi_container_page_pv" title="文章总阅读量" style="display:none">
+    <i class="icon icon-eye icon-pr"></i><span id="busuanzi_value_page_pv"></span>
+</span>
+
+
+        </div>
+        <div class="post-content" id="post-content" itemprop="postContent">
+            <blockquote>
+<p>构建docker镜像时依赖的官方镜像大多时区不是国内东八区,需要在build镜像时重新设置时区。</p>
+</blockquote>
+<h4 id="修改镜像源为阿里"><a class="markdownIt-Anchor" href="#修改镜像源为阿里"></a> 修改镜像源为阿里</h4>
+<pre class="highlight"><code class="bash"><span class="hljs-built_in">echo</span> -e  <span class="hljs-string">"http://mirrors.aliyun.com/alpine/v3.4/main\nhttp://mirrors.aliyun.com/alpine/v3.4/community"</span> \
+ &gt;  /etc/apk/repositories &amp;&amp; apk update
+</code></pre>
+<h4 id="安装tzdata"><a class="markdownIt-Anchor" href="#安装tzdata"></a> 安装tzdata</h4>
+<pre class="highlight"><code class="bash">apk add tzdata
+</code></pre>
+<h4 id="拷贝对应时区止localtime"><a class="markdownIt-Anchor" href="#拷贝对应时区止localtime"></a> 拷贝对应时区止localtime</h4>
+<pre class="highlight"><code class="bash">cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+</code></pre>
+<h4 id="指定时区"><a class="markdownIt-Anchor" href="#指定时区"></a> 指定时区</h4>
+<pre class="highlight"><code class="bash"><span class="hljs-built_in">echo</span> <span class="hljs-string">"Asia/Shanghai"</span> &gt; /etc/timezone
+</code></pre>
+<h4 id="删除tzdata"><a class="markdownIt-Anchor" href="#删除tzdata"></a> 删除tzdata</h4>
+<pre class="highlight"><code class="bash">apk del tzdata
+</code></pre>
+<h4 id="dockerfile-写法"><a class="markdownIt-Anchor" href="#dockerfile-写法"></a> Dockerfile 写法</h4>
+<pre class="highlight"><code class="dockerfile"><span class="hljs-keyword">FROM</span> tomcat:alpine
+<span class="hljs-keyword">RUN</span><span class="bash"> <span class="hljs-built_in">echo</span> -e  <span class="hljs-string">"http://mirrors.aliyun.com/alpine/v3.4/main\nhttp://mirrors.aliyun.com/alpine/v3.4/community"</span> &gt;  /etc/apk/repositories \
+&amp;&amp; apk update &amp;&amp; apk add tzdata \
+&amp;&amp; cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+&amp;&amp; <span class="hljs-built_in">echo</span> <span class="hljs-string">"Shanghai/Asia"</span> &gt; /etc/timezone \
+&amp;&amp; apk del tzdata
+</span></code></pre>
+<p>转载请注明出处，本文采用 <a href="http://creativecommons.org/licenses/by-nc-nd/4.0/" target="_blank" rel="noopener">CC4.0</a> 协议授权</p>
+
+        </div>
+
+        <blockquote class="post-copyright">
+    
+    <div class="content">
+        
+<span class="post-time">
+    最后更新时间：<time datetime="2020-01-18T03:09:08.937Z" itemprop="dateUpdated">2020-01-18 11:09:08</time>
+</span><br>
+
+
+        
+    </div>
+    
+    <footer>
+        <a href="https://liwei.blog">
+            <img src="/img/avatar_i.jpg" alt="李伟">
+            李伟
+        </a>
+    </footer>
+</blockquote>
+
+        
+<div class="page-reward">
+    <a id="rewardBtn" href="javascript:;" class="page-reward-btn waves-effect waves-circle waves-light">赏</a>
+</div>
+
+
+
+        <div class="post-footer">
+            
+	<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Alpine/">Alpine</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Docker/">Docker</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Timezone/">Timezone</a></li></ul>
+
+
+            
+
+
+        </div>
+    </div>
+
+    
+<nav class="post-nav flex-row flex-justify-between">
+  
+    <div class="waves-block waves-effect prev">
+      <a href="/2017/07/19/zookeeper-cluster-in-docker/" id="post-prev" class="post-nav-link">
+        <div class="tips"><i class="icon icon-angle-left icon-lg icon-pr"></i> Prev</div>
+        <h4 class="title">Docker容器部署zookeeper集群</h4>
+      </a>
+    </div>
+  
+
+  
+    <div class="waves-block waves-effect next">
+      <a href="/2016/12/07/deploy-disconf-in-docker/" id="post-next" class="post-nav-link">
+        <div class="tips">Next <i class="icon icon-angle-right icon-lg icon-pl"></i></div>
+        <h4 class="title">基于Dokcer容器部署分布式配置文件中心disconf</h4>
+      </a>
+    </div>
+  
+</nav>
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    <!-- Valine Comments -->
+    <div class="comments vcomment" id="comments"></div>
+    <script src="//cdn1.lncld.net/static/js/3.0.4/av-min.js"></script>
+    <script src="//unpkg.com/valine@latest/dist/Valine.min.js"></script>
+    <!-- Valine Comments script -->
+    <script>
+        var GUEST_INFO = ['nick','mail','link'];
+        var guest_info = 'nick,mail,link'.split(',').filter(function(item){
+          return GUEST_INFO.indexOf(item) > -1
+        });
+        new Valine({
+            el: '#comments',
+            notify: 'false' == 'true',
+            verify: 'false' == 'true',
+            appId: "kfdrTH2pxWyIoIhEFCikvQ5K-gzGzoHsz",
+            appKey: "Lz3UJCOHAhcdW08xXqaPpcGl",
+            avatar: "identicon",
+            placeholder: "想说点什么？",
+            guest_info: guest_info.length == 0 ? GUEST_INFO : guest_info,
+            pageSize: "10"
+        })
+    </script>
+    <!-- Valine Comments end -->
+
+
+
+
+
+
+
+</article>
+
+<div id="reward" class="page-modal reward-lay">
+    <a class="close" href="javascript:;"><i class="icon icon-close"></i></a>
+    <h3 class="reward-title">
+        <i class="icon icon-quote-left"></i>
+        谢谢老板~
+        <i class="icon icon-quote-right"></i>
+    </h3>
+    <div class="reward-content">
+        
+        <div class="reward-code">
+            <img id="rewardCode" src="/img/wechat.png" alt="打赏二维码">
+        </div>
+        
+        <label class="reward-toggle">
+            <input id="rewardToggle" type="checkbox" class="reward-toggle-check" data-wechat="/img/wechat.png" data-alipay="/img/alipay.png">
+            <div class="reward-toggle-ctrol">
+                <span class="reward-toggle-item wechat">微信</span>
+                <span class="reward-toggle-label"></span>
+                <span class="reward-toggle-item alipay">支付宝</span>
+            </div>
+        </label>
+        
+    </div>
+</div>
+
+
+
+</div>
+
+        <footer class="footer">
+    <div class="top">
+        
+<p>
+    <span id="busuanzi_container_site_uv" style="display:none">
+        站点总访客数：<span id="busuanzi_value_site_uv"></span>
+    </span>
+    <span id="busuanzi_container_site_pv" style="display:none">
+        站点总访问量：<span id="busuanzi_value_site_pv"></span>
+    </span>
+</p>
+
+
+        <p>
+            
+                <span><a href="/atom.xml" target="_blank" class="rss" title="rss"><i class="icon icon-lg icon-rss"></i></a></span>
+            
+            <span>博客内容遵循 <a rel="license" href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh">知识共享 署名 - 非商业性 - 相同方式共享 4.0 国际协议</a></span>
+        </p>
+    </div>
+    <div class="bottom">
+        <p><span>李伟 &copy; 2018 - 2020</span>
+        </p>
+    </div>
+</footer>
+
+    </main>
+    <div class="mask" id="mask"></div>
+<a href="javascript:;" id="gotop" class="waves-effect waves-circle waves-light"><span class="icon icon-lg icon-chevron-up"></span></a>
+
+
+    <script src="//cdn.bootcss.com/node-waves/0.7.4/waves.min.js"></script>
+<script>
+var BLOG = { ROOT: '/', SHARE: false, REWARD: true };
+
+</script>
+<script src="/js/main.min.js?v=1.7.2"></script>
+
+
+<div class="search-panel" id="search-panel">
+    <ul class="search-result" id="search-result"></ul>
+</div>
+<template id="search-tpl">
+<li class="item">
+    <a href="{path}" class="waves-block waves-effect">
+        <div class="title ellipsis" title="{title}">{title}</div>
+        <div class="flex-row flex-middle">
+            <div class="tags ellipsis">
+                {tags}
+            </div>
+            <time class="flex-col time">{date}</time>
+        </div>
+    </a>
+</li>
+</template>
+
+<script src="/js/search.min.js?v=1.7.2" async></script>
+
+
+
+
+
+
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+<script>
+(function() {
+    var OriginTitile = document.title, titleTime;
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            document.title = '客官您慢走~';
+            clearTimeout(titleTime);
+        } else {
+            document.title = '欢迎再次光临~';
+            titleTime = setTimeout(function() {
+                document.title = OriginTitile;
+            },2000);
+        }
+    });
+})();
+</script>
+
+
+
+    
+<!-- Highlight.js -->
+<link href="https://cdn.bootcss.com/KaTeX/0.9.0/katex.min.css" rel="stylesheet">
+<link rel="stylesheet" href="//cdn.bootcss.com/highlight.js/9.13.1/styles/github.min.css">
+<script src="//cdn.bootcss.com/highlight.js/9.13.1/highlight.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlightjs-line-numbers.js/2.5.0/highlightjs-line-numbers.min.js"></script>
+<script>
+    hljs.initHighlightingOnLoad();
+    hljs.initLineNumbersOnLoad({
+        singleLine: true
+    });
+</script>
+
+</body>
+</html>
